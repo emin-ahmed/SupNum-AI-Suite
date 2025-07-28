@@ -12,7 +12,6 @@ stages:
       - params.yaml
     outs:
       - /tmp/adapter
-      - metrics/train_metrics.json
     metrics:
       - metrics/train_metrics.json
 
