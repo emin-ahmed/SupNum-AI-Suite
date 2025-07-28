@@ -6,9 +6,10 @@ import json
 import torch
 from datasets import load_dataset
 from transformers import AutoTokenizer, T5ForConditionalGeneration, Trainer, TrainingArguments
-from peft import LoraConfig, get_peft_model
+from peft import LoraConfig, get_peft_model, PeftModel
 from rouge import Rouge
 from transformers import logging as hf_logging
+import mlflow.pyfunc
 
 hf_logging.set_verbosity_info()
 
@@ -16,6 +17,93 @@ hf_logging.set_verbosity_info()
 print("CUDA Available:", torch.cuda.is_available())
 print("Device Count:", torch.cuda.device_count())
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+class LoRAAdvisorModel(mlflow.pyfunc.PythonModel):
+    """Custom MLflow PyFunc wrapper for LoRA-adapted T5 model"""
+    
+    def load_context(self, context):
+        """Load the model when MLflow loads the artifact"""
+        import torch
+        from transformers import AutoTokenizer, T5ForConditionalGeneration
+        from peft import PeftModel
+        
+        # Get the base model name from the context (we'll save it as an artifact)
+        with open(context.artifacts["config"], 'r') as f:
+            config = json.load(f)
+        
+        base_model_name = config["base_model"]
+        
+        # Load tokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(base_model_name)
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        
+        # Load base model
+        base_model = T5ForConditionalGeneration.from_pretrained(base_model_name)
+        
+        # Load LoRA adapter
+        self.model = PeftModel.from_pretrained(base_model, context.artifacts["adapter"])
+        
+        # Set device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+        self.model.eval()
+    
+    def predict(self, context, model_input):
+        """
+        Make predictions on input data
+        
+        Args:
+            model_input: Can be:
+                - pandas DataFrame with columns: question_ar, question_fr
+                - dict with keys: question_ar, question_fr
+                - list of dicts
+        """
+        import pandas as pd
+        
+        # Handle different input formats
+        if isinstance(model_input, pd.DataFrame):
+            questions = model_input.to_dict('records')
+        elif isinstance(model_input, dict):
+            questions = [model_input]
+        elif isinstance(model_input, list):
+            questions = model_input
+        else:
+            raise ValueError("Input must be DataFrame, dict, or list of dicts")
+        
+        results = []
+        
+        for question in questions:
+            # Format input like during training
+            input_text = f"سؤال: {question['question_ar']}  Question_FR: {question['question_fr']}"
+            
+            # Tokenize
+            inputs = self.tokenizer(
+                input_text,
+                max_length=512,
+                truncation=True,
+                padding=True,
+                return_tensors="pt"
+            ).to(self.device)
+            
+            # Generate response
+            with torch.no_grad():
+                outputs = self.model.generate(
+                    **inputs,
+                    max_length=512,
+                    num_beams=4,
+                    early_stopping=True,
+                    do_sample=False
+                )
+            
+            # Decode response
+            response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            results.append({
+                "input": input_text,
+                "response": response
+            })
+        
+        return results
 
 def download_from_s3(bucket, key, local_path):
     session = boto3.session.Session(
@@ -36,13 +124,24 @@ def preprocess_function(examples, tokenizer):
     model_inputs["labels"] = labels["input_ids"]
     return model_inputs
 
-def compute_metrics(eval_preds):
+def compute_metrics(eval_preds, tokenizer):
     preds, labels = eval_preds
+    
+    # Decode predictions and labels
+    decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
+    decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+    
+    # Clean up labels (remove padding)
+    decoded_labels = [label.replace(tokenizer.pad_token, "").strip() for label in decoded_labels]
+    decoded_preds = [pred.strip() for pred in decoded_preds]
+    
+    # Calculate ROUGE scores
     rouge = Rouge()
-    decoded_preds = [p.strip() for p in preds]
-    decoded_labels = [l.strip() for l in labels]
-    rouge_scores = rouge.get_scores(decoded_preds, decoded_labels, avg=True)
-    return {"rouge_l_f": rouge_scores["rouge-l"]["f"]}
+    try:
+        rouge_scores = rouge.get_scores(decoded_preds, decoded_labels, avg=True)
+        return {"rouge_l_f": rouge_scores["rouge-l"]["f"]}
+    except:
+        return {"rouge_l_f": 0.0}
 
 if __name__ == "__main__":
     params = yaml.safe_load(open("params.yaml"))["advisor"]
@@ -56,9 +155,12 @@ if __name__ == "__main__":
 
     dataset = load_dataset("json", data_files={"train": local_train})
     tokenizer = AutoTokenizer.from_pretrained(params["base_model"])
+    
+    # Add padding token if missing
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    
     model = T5ForConditionalGeneration.from_pretrained(params["base_model"])
-
-    # --- Move model to GPU explicitly ---
     model.to(device)
 
     dataset = dataset.map(lambda x: preprocess_function(x, tokenizer), batched=True)
@@ -83,14 +185,18 @@ if __name__ == "__main__":
         save_strategy="no",
         save_total_limit=0,
         report_to=["mlflow"],
-        fp16=torch.cuda.is_available()  # mixed precision if GPU
+        fp16=torch.cuda.is_available()
     )
+
+    # Create compute_metrics function with tokenizer
+    def compute_metrics_with_tokenizer(eval_preds):
+        return compute_metrics(eval_preds, tokenizer)
 
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=dataset["train"],
-        compute_metrics=compute_metrics
+        compute_metrics=compute_metrics_with_tokenizer
     )
 
     with mlflow.start_run() as run:
@@ -101,13 +207,16 @@ if __name__ == "__main__":
             "lr": params["lr"],
             "batch_size": params["batch_size"],
             "lora_r": params["lora_r"],
-            "lora_alpha": params["lora_alpha"]
+            "lora_alpha": params["lora_alpha"],
+            "base_model": params["base_model"]
         })
 
+        # Save metrics
         os.makedirs("metrics", exist_ok=True)
         with open("metrics/train_metrics.json", "w") as f:
             json.dump(trainer.state.log_history, f, ensure_ascii=False)
 
+        # Log training metrics to MLflow
         final_metrics = trainer.state.log_history
         for record in final_metrics:
             if "loss" in record:
@@ -115,12 +224,37 @@ if __name__ == "__main__":
             if "eval_loss" in record:
                 mlflow.log_metric("eval_loss", record["eval_loss"], step=record.get("step", 0))
 
+        # Save adapter
         adapter_dir = "/tmp/adapter"
         model.save_pretrained(adapter_dir)
+        
+        # Save model configuration for inference
+        config_path = "/tmp/model_config.json"
+        config = {
+            "base_model": params["base_model"],
+            "lora_r": params["lora_r"],
+            "lora_alpha": params["lora_alpha"],
+            "target_modules": ["q", "v"],
+            "task_type": "SEQ_2_SEQ_LM"
+        }
+        with open(config_path, 'w') as f:
+            json.dump(config, f)
+        
+        # Log model with custom PyFunc wrapper
         mlflow.pyfunc.log_model(
             artifact_path="advisor_model",
-            python_model=None,
-            artifacts={"adapter": adapter_dir}
+            python_model=LoRAAdvisorModel(),
+            artifacts={
+                "adapter": adapter_dir,
+                "config": config_path
+            },
+            pip_requirements=[
+                "torch",
+                "transformers",
+                "peft",
+                "accelerate"
+            ]
         )
 
     print("Training completed and model logged to MLflow.")
+    print(f"Model URI: runs:/{run.info.run_id}/advisor_model")
