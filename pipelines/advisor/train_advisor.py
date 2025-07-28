@@ -1,4 +1,9 @@
-import os, boto3, yaml, mlflow, json
+import os
+import boto3
+import yaml
+import mlflow
+import json
+import torch
 from datasets import load_dataset
 from transformers import AutoTokenizer, T5ForConditionalGeneration, Trainer, TrainingArguments
 from peft import LoraConfig, get_peft_model
@@ -7,8 +12,10 @@ from transformers import logging as hf_logging
 
 hf_logging.set_verbosity_info()
 
-# def download_from_s3(bucket, key, local_path):
-#     boto3.client("s3").download_file(bucket, key, local_path)
+# --- GPU CHECK ---
+print("CUDA Available:", torch.cuda.is_available())
+print("Device Count:", torch.cuda.device_count())
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def download_from_s3(bucket, key, local_path):
     session = boto3.session.Session(
@@ -18,7 +25,6 @@ def download_from_s3(bucket, key, local_path):
     )
     s3 = session.client("s3")
     s3.download_file(bucket, key, local_path)
-
 
 def preprocess_function(examples, tokenizer):
     inputs = [f"سؤال: {q_ar}  Question_FR: {q_fr}" 
@@ -52,6 +58,9 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(params["base_model"])
     model = T5ForConditionalGeneration.from_pretrained(params["base_model"])
 
+    # --- Move model to GPU explicitly ---
+    model.to(device)
+
     dataset = dataset.map(lambda x: preprocess_function(x, tokenizer), batched=True)
 
     lora_config = LoraConfig(
@@ -61,7 +70,6 @@ if __name__ == "__main__":
         lora_dropout=params["lora_dropout"],
         task_type="SEQ_2_SEQ_LM"
     )
-    
     model = get_peft_model(model, lora_config)
 
     training_args = TrainingArguments(
@@ -74,16 +82,20 @@ if __name__ == "__main__":
         logging_steps=1,
         save_strategy="no",
         save_total_limit=0,
-        report_to=["mlflow"]
+        report_to=["mlflow"],
+        fp16=torch.cuda.is_available()  # mixed precision if GPU
     )
 
-    trainer = Trainer(model=model, args=training_args, train_dataset=dataset["train"], compute_metrics=compute_metrics)
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=dataset["train"],
+        compute_metrics=compute_metrics
+    )
 
     with mlflow.start_run() as run:
         trainer.train()
-        # trainer.save_model("./output")
 
-        # log params & metrics to MLflow
         mlflow.log_params({
             "epochs": params["epochs"],
             "lr": params["lr"],
@@ -92,30 +104,23 @@ if __name__ == "__main__":
             "lora_alpha": params["lora_alpha"]
         })
 
-        # Save training log for DVC metrics
         os.makedirs("metrics", exist_ok=True)
         with open("metrics/train_metrics.json", "w") as f:
             json.dump(trainer.state.log_history, f, ensure_ascii=False)
 
-        # Save final training metrics to file for DVC
         final_metrics = trainer.state.log_history
-
-        # Log metrics to MLflow manually as well (optional redundancy)
         for record in final_metrics:
             if "loss" in record:
                 mlflow.log_metric("loss", record["loss"], step=record.get("step", 0))
             if "eval_loss" in record:
                 mlflow.log_metric("eval_loss", record["eval_loss"], step=record.get("step", 0))
 
-
         adapter_dir = "/tmp/adapter"
-        model.save_pretrained(adapter_dir)     # minimal temp save
+        model.save_pretrained(adapter_dir)
         mlflow.pyfunc.log_model(
             artifact_path="advisor_model",
             python_model=None,
             artifacts={"adapter": adapter_dir}
         )
-
-      
 
     print("Training completed and model logged to MLflow.")
