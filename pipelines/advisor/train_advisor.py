@@ -11,7 +11,7 @@ from rouge import Rouge
 from transformers import logging as hf_logging
 import mlflow.pyfunc
 from transformers import DataCollatorForSeq2Seq
-
+import shutil
 
 hf_logging.set_verbosity_info()
 
@@ -289,10 +289,14 @@ if __name__ == "__main__":
         #     registered_model_name="advisor_model"          
         # )
 
+        temp_model_path = "./temp_advisor_model"
+        if os.path.exists(temp_model_path):
+            shutil.rmtree(temp_model_path)
+        print(f"Removed existing directory: {temp_model_path}")
 
-              # First save and log the model
+        # First save and log the model
         mlflow.pyfunc.save_model(
-            path="./temp_advisor_model",
+            path=temp_model_path,
             python_model=LoRAAdvisorModel(),
             artifacts={
                 "adapter": adapter_dir,
@@ -307,7 +311,7 @@ if __name__ == "__main__":
         )
 
         # Log to MLflow
-        mlflow.log_artifacts("./temp_advisor_model", "advisor_model")
+        mlflow.log_artifacts(temp_model_path, "advisor_model")
 
         # Register the model
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/advisor_model"
