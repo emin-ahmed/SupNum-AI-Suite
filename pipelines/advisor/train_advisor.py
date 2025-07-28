@@ -3,6 +3,9 @@ from datasets import load_dataset
 from transformers import AutoTokenizer, T5ForConditionalGeneration, Trainer, TrainingArguments
 from peft import LoraConfig, get_peft_model
 from rouge import Rouge
+from transformers import logging as hf_logging
+
+hf_logging.set_verbosity_info()
 
 def download_from_s3(bucket, key, local_path):
     boto3.client("s3").download_file(bucket, key, local_path)
@@ -57,7 +60,8 @@ if __name__ == "__main__":
         num_train_epochs=params["epochs"],
         learning_rate=params["lr"],
         logging_dir="./logs",
-        logging_steps=10,
+        logging_strategy="steps",
+        logging_steps=1,
         save_strategy="no",
         save_total_limit=0,
         report_to=["mlflow"]
