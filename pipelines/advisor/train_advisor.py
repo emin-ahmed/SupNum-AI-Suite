@@ -106,6 +106,8 @@ class LoRAAdvisorModel(mlflow.pyfunc.PythonModel):
         return results
 
 def download_from_s3(bucket, key, local_path):
+    print("Access key:", os.getenv("AWS_ACCESS_KEY_ID"))
+    print("Secret key:", os.getenv("AWS_SECRET_ACCESS_KEY"))
     session = boto3.session.Session(
         aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
         aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
