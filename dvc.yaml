@@ -6,10 +6,13 @@ stages:
       - params.yaml
 
   finetune:
-    cmd: python pipelines/advisor/train_advisor.py
+    cmd: python pipelines/advisor/train_advisor.py 2>&1 | tee logs/finetune.log
     deps:
       - pipelines/advisor/train_advisor.py
       - params.yaml
+    outs:
+      - /tmp/adapter
+      - metrics/train_metrics.json
     metrics:
       - metrics/train_metrics.json
 
