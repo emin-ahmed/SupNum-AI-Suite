@@ -8,3 +8,5 @@ rouge==1.0.1
 scikit_learn==1.7.1
 transformers==4.49.0
 dvc
+fastapi==0.111.0
+uvicorn==0.29.0
