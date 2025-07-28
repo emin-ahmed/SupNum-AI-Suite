@@ -1,0 +1,22 @@
+stages:
+  preprocess:
+    cmd: python pipelines/advisor/prepare_advisor.py
+    deps:
+      - pipelines/advisor/prepare_advisor.py
+      - params.yaml
+
+  finetune:
+    cmd: python pipelines/advisor/train_advisor.py
+    deps:
+      - pipelines/advisor/train_advisor.py
+      - params.yaml
+    metrics:
+      - metrics/train_metrics.json
+
+  evaluate:
+    cmd: python pipelines/advisor/eval_advisor.py
+    deps:
+      - pipelines/advisor/eval_advisor.py
+      - params.yaml
+    metrics:
+      - metrics/eval_metrics.json
