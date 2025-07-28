@@ -10,6 +10,8 @@ from peft import LoraConfig, get_peft_model, PeftModel
 from rouge import Rouge
 from transformers import logging as hf_logging
 import mlflow.pyfunc
+from transformers import DataCollatorForSeq2Seq
+
 
 hf_logging.set_verbosity_info()
 
@@ -111,6 +113,7 @@ def download_from_s3(bucket, key, local_path):
     session = boto3.session.Session(
         aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
         aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+        aws_session_token=os.getenv("AWS_SESSION_TOKEN"),
         region_name=os.getenv("AWS_DEFAULT_REGION", "us-east-1")
     )
     s3 = session.client("s3")
@@ -154,6 +157,31 @@ if __name__ == "__main__":
     os.makedirs("data", exist_ok=True)
     local_train = "data/train.jsonl"
     download_from_s3(params["bucket"], params["train_key"], local_train)
+    
+
+
+    import ast
+    import json
+
+
+    # Read the Python-dict style lines, convert to valid JSON, and overwrite
+    with open(local_train, "r") as infile:
+        lines = infile.readlines()
+
+    with open(local_train, "w") as outfile:
+        for line in lines:
+            try:
+                data = ast.literal_eval(line.strip())   # safely parse Python dict
+                outfile.write(json.dumps(data, ensure_ascii=False) + "\n")
+            except Exception as e:
+                print("Failed line:", line)
+                print("Error:", e)
+
+    print("File successfully fixed and overwritten as proper JSONL")
+
+
+
+
 
     dataset = load_dataset("json", data_files={"train": local_train})
     tokenizer = AutoTokenizer.from_pretrained(params["base_model"])
@@ -180,7 +208,7 @@ if __name__ == "__main__":
         output_dir="./output",
         per_device_train_batch_size=params["batch_size"],
         num_train_epochs=params["epochs"],
-        learning_rate=params["lr"],
+        learning_rate=float(params["lr"]),
         logging_dir="./logs",
         logging_strategy="steps",
         logging_steps=1,
@@ -194,11 +222,13 @@ if __name__ == "__main__":
     def compute_metrics_with_tokenizer(eval_preds):
         return compute_metrics(eval_preds, tokenizer)
 
+    data_collator = DataCollatorForSeq2Seq(tokenizer, model=model)
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=dataset["train"],
-        compute_metrics=compute_metrics_with_tokenizer
+        compute_metrics=compute_metrics_with_tokenizer,
+        data_collator=data_collator
     )
 
     with mlflow.start_run() as run:
