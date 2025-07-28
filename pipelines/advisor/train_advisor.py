@@ -42,7 +42,7 @@ if __name__ == "__main__":
     params = yaml.safe_load(open("params.yaml"))["advisor"]
 
     mlflow.set_tracking_uri(params["mlflow_tracking_uri"])
-    mlflow.set_experiment(params["advisor_experiment"])
+    mlflow.set_experiment(params["mlflow_experiment"])
 
     os.makedirs("data", exist_ok=True)
     local_train = "data/train.jsonl"
