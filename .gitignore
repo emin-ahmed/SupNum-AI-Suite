@@ -1,0 +1,17 @@
+# 📁 Ne pas versionner les données, modèles, ou environnement
+data/
+venv/
+pipelines/faq/models/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environnement
+.env
+.DS_Store
