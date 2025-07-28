@@ -7,8 +7,18 @@ from transformers import logging as hf_logging
 
 hf_logging.set_verbosity_info()
 
+# def download_from_s3(bucket, key, local_path):
+#     boto3.client("s3").download_file(bucket, key, local_path)
+
 def download_from_s3(bucket, key, local_path):
-    boto3.client("s3").download_file(bucket, key, local_path)
+    session = boto3.session.Session(
+        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+        region_name=os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+    )
+    s3 = session.client("s3")
+    s3.download_file(bucket, key, local_path)
+
 
 def preprocess_function(examples, tokenizer):
     inputs = [f"سؤال: {q_ar}  Question_FR: {q_fr}" 
@@ -32,7 +42,7 @@ if __name__ == "__main__":
     params = yaml.safe_load(open("params.yaml"))["advisor"]
 
     mlflow.set_tracking_uri(params["mlflow_tracking_uri"])
-    mlflow.set_experiment(params["mlflow_experiment"])
+    mlflow.set_experiment(params["advisor_experiment"])
 
     os.makedirs("data", exist_ok=True)
     local_train = "data/train.jsonl"
