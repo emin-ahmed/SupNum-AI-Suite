@@ -272,9 +272,27 @@ if __name__ == "__main__":
         with open(config_path, 'w') as f:
             json.dump(config, f)
         
-        # Log model with custom PyFunc wrapper
-        mlflow.pyfunc.log_model(
-            artifact_path="advisor_model",
+        # Log model with custom PyFunc wrapper(Needs a newer version on the server)
+        # mlflow.pyfunc.log_model(
+        #     artifact_path="advisor_model",
+        #     python_model=LoRAAdvisorModel(),
+        #     artifacts={
+        #         "adapter": adapter_dir,
+        #         "config": config_path
+        #     },
+        #     pip_requirements=[
+        #         "torch",
+        #         "transformers",
+        #         "peft",
+        #         "accelerate"
+        #     ],
+        #     registered_model_name="advisor_model"          
+        # )
+
+
+              # First save and log the model
+        mlflow.pyfunc.save_model(
+            path="./temp_advisor_model",
             python_model=LoRAAdvisorModel(),
             artifacts={
                 "adapter": adapter_dir,
@@ -288,5 +306,16 @@ if __name__ == "__main__":
             ]
         )
 
+        # Log to MLflow
+        mlflow.log_artifacts("./temp_advisor_model", "advisor_model")
+
+        # Register the model
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/advisor_model"
+        registered_model = mlflow.register_model(
+            model_uri=model_uri,
+            name="advisor-model"  # Choose your model name
+        )
+
+        print(f"Model registered: {registered_model.name}, Version: {registered_model.version}")
     print("Training completed and model logged to MLflow.")
     print(f"Model URI: runs:/{run.info.run_id}/advisor_model")
