@@ -1,11 +1,46 @@
 stages:
-  preprocess:
+  preprocess_faq:
+    cmd: python pipelines/faq/prepare_faq.py
+    deps:
+      - pipelines/faq/prepare_faq.py
+    params:
+      - preprocess.input
+      - preprocess.output
+    outs:
+      - data/datafaq/faq_chatml1.jsonl
+
+  train_faq:
+    cmd: python pipelines/faq/train_faq.py
+    deps:
+      - data/datafaq/faq_chatml1.jsonl
+      - pipelines/faq/train_faq.py
+    params:
+      - train.batch_size
+      - train.epochs
+      - train.learning_rate
+      - train.lora_alpha
+      - train.lora_dropout
+      - train.lora_r
+      - train.model_name
+      - train.output_dir
+    outs:
+      - pipelines/faq/models/faq_model_flan_base
+
+  evaluate_faq:
+    cmd: python pipelines/faq/eval_faq.py
+    deps:
+      - pipelines/faq/eval_faq.py
+      - pipelines/faq/models/faq_model_flan_base
+    outs:
+      - eval_output.txt
+
+  preprocess_advisor:
     cmd: python pipelines/advisor/prepare_advisor.py
     deps:
       - pipelines/advisor/prepare_advisor.py
       - params.yaml
 
-  finetune:
+  finetune_advisor:
     cmd: python pipelines/advisor/train_advisor.py 2>&1 | tee logs/finetune.log
     deps:
       - pipelines/advisor/train_advisor.py
@@ -15,7 +50,7 @@ stages:
     metrics:
       - metrics/train_metrics.json
 
-  evaluate:
+  evaluate_advisor:
     cmd: python pipelines/advisor/eval_advisor.py
     deps:
       - pipelines/advisor/eval_advisor.py
