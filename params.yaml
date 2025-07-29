@@ -9,8 +9,8 @@ advisor:
   mlflow_experiment: "advisor_experiment"
   mlflow_model_name: "advisor_model"
 
-  # base_model: "UBC-NLP/AraT5v2-base-1024"   
-  base_model: "google-t5/t5-small"
+  base_model: "UBC-NLP/AraT5v2-base-1024"   
+  # base_model: "google-t5/t5-small"
   lora_r: 8
   lora_alpha: 16
   lora_dropout: 0.1
