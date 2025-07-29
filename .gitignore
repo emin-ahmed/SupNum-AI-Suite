@@ -1,0 +1,49 @@
+# 📁 Ne pas versionner les données, modèles, ou environnement
+data/
+venv/
+pipelines/faq/models/
+
+
+
+temp_faq_model/
+*.pkl
+*.bin
+*.onnx
+
+params.yaml
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Données DVC gérées par remote
+
+
+*.dvc
+!data.dvc
+!.dvc/config
+!.dvcignore
+!.dvc/tmp/
+#params.yaml
+#dvc.yaml
+# Cache DVC local
+.dvc/cache/
+.dvc/tmp/
+
+models/
+pipelines/**/models/
+
+# Artéfacts MLflow
+mlruns/
+
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environnement
+.env
+.DS_Store
+/eval_output.txt
+temp_faq_model/python_model.pkl

@@ -1,0 +1,9 @@
+[core]
+    remote = dvcstore
+['remote "storage"']
+    url = s3://project-mlops-bucket
+['remote "dvcstore"']
+    url = s3://project-mlops-bucket/dvc
+    access_key_id = ASIA4NLUC36ZQAZSOLJI
+    secret_access_key = MfQXAUoTjpN9nSo0UV9KXVzZ8RzXybfw6gSIhqak
+    region = eu-north-1

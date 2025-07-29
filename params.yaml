@@ -1,0 +1,43 @@
+preprocess:
+  input: data/datafaq/intialze.jsnol
+  output: data/datafaq/faq_chatml1.jsonl
+
+train:
+  model_name: google/flan-t5-base
+  output_dir: pipelines/faq/models/faq_model_flan_base
+  batch_size: 4
+  epochs: 2.8
+  learning_rate: 3e-4
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.05
+
+advisor:
+  bucket: "project-mlops-bucket"
+  raw_key: "raw-data/advisor_dataset.csv"
+  processed_prefix: "processed-data/advisor/"
+  train_key: "processed-data/advisor/train.jsonl"
+  test_key: "processed-data/advisor/test.jsonl"
+
+  mlflow_tracking_uri: "http://13.48.49.105:5000"
+  mlflow_experiment: "advisor_experiment"
+  mlflow_model_name: "advisor_model"
+
+  base_model: "UBC-NLP/AraT5v2-base-1024"
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.1
+  lr: 2e-4
+  epochs: 3
+  batch_size: 4
+  max_new_tokens: 50
+
+mlflow:
+  MLFLOW_TRACKING_URI: http://13.48.49.105:5000/
+
+aws:
+  aws_access_key_id: "ASIA4NLUC36ZQVKGTCXE"
+  aws_secret_access_key: "3RDxWsbWp3iooEWc0JQjvDPK80pDFsM5vIPtfjLN"
+  aws_session_token: "IQoJb3JpZ2luX2VjEIT//////////wEaCWV1LXdlc3QtMyJHMEUCIHsgXMBAnME9lYiGmRUqXoZhUXgWatjjQ4364RVNmDwnAiEA3kzJBcpTR1ZstNDYjzOfd8ss/SdyisMpdrRNJFFGEFgq8AIIrf//////////ARAAGgw4NTMzMzEzMzcxMzkiDIPusLbuSpLMb5cX8CrEAlYDv6KHXkiKOAoep9BEHpsklV7RVFHeWvq3hkAPLCMTm6OTjywusoYY1hsUwwywB3llxAcOVJ7XIWCl04WnGgcJN1QQ0k20GxJrjXTaUGNGqdvSsap7wYd8/prhwazJcAs4BnjWqS06P7a21EzsSj9CYV3ua3BlENKZpGpoEBqipOfnjjwFeD4uTaEEykKxS6wS9kP3e1Hs2+udsYS2e5p9LNEexApWN8PqQvtNqZz7ByBZjRRNcGtful2KMqOmkJC6JqWj0PNwfJFqO3PbQit8x8qizlAxDcPnKvdd0VsSsn6kqeHAVQQdwce2ae/t6sJTo6mPsW6ghtYaKwbLOdMfbjY9Tt532AEiQq23IdHBx8ds9UtdWkDOicg0HOhDWfjasxKqKaXpJhHuokewgq3YYK0LvoQ49+RN4NVoyjL/chIjgTDY1KTEBjqnAUdOZC28Qvy9vVdaJ+xHbNCOjN34EiNui8dy5n7fiGaUve55l9DR+vgguKJYeN/yqlA4+3gpXUKdqhTo5muTvWl8Q6cHUZpSAVEgLS6PDTJJMvL4utKrWSPGvxvEuMvzm9zHiCaBRRTGU/MdBkP6jUNo0wf5UG2sMXkRPBQM4LkrmiZWcyqP5oT5Cz2kg8MWPhwg3RM/y7i/sGtihsMBr7N+c969iE5s"
+  region_name: "eu-north-1"
+
