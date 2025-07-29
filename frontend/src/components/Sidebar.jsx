@@ -47,8 +47,10 @@ export const Sidebar = ({
         />
       )}
 
-      <div className={`
-        fixed lg:static inset-y-0 left-0 z-40 w-64 bg-gray-900 text-white flex flex-col
+      <div 
+      style={{ backgroundColor: '#0077B6' }}
+      className={`
+        fixed lg:static inset-y-0 left-0 z-40 w-64 text-white flex flex-col
         transform transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
@@ -61,8 +63,9 @@ export const Sidebar = ({
               onNewChat('faq');
               setIsOpen(false);
             }}
+            // style={{ backgroundColor: '#0096C7' }}
             title="Posez vos questions administratives (inscription, calendrier...)"
-            className="w-full flex items-center gap-3 px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+            className="w-full flex items-center bg-[#0096C7] gap-3 px-4 py-3  hover:bg-[#023E8A] rounded-lg transition-colors"
           >
             <Plus size={18} />
             <span className="font-medium">FAQ</span>
@@ -74,8 +77,9 @@ export const Sidebar = ({
               onNewChat('advisor');
               setIsOpen(false);
             }}
+            // style={{ backgroundColor: '#0096C7' }}
             title="Recevez des conseils sur vos études, votre orientation ou carrière"
-            className="w-full flex items-center gap-3 px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+            className="w-full flex items-center gap-3 bg-[#0096C7] px-4 py-3  hover:bg-[#023E8A] rounded-lg transition-colors"
           >
             <Plus size={18} />
             <span className="font-medium">Advisor</span>
