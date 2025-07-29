@@ -33,8 +33,11 @@ export const WelcomeScreen = ({ onSendMessage }) => {
     <div className="flex-1 flex items-center justify-center p-4">
       <div className="max-w-4xl w-full">
         <div className="text-center mb-12">
-          <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
+          {/* <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
             <MessageSquare size={32} className="text-white" />
+          </div> */}
+          <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-6">
+          <img src="/logo-supnum.png" alt="Logo Supnum" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
             Comment puis-je vous aider aujourd'hui ?

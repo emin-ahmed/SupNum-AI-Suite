@@ -45,7 +45,7 @@ export const ChatInput = ({ onSendMessage, disabled = false }) => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Envoyez un message à ChatGPT..."
+              placeholder="Envoyez un message à SupnumChat..."
               disabled={disabled}
               rows={1}
               className="flex-1 resize-none border-none outline-none py-3 text-gray-900 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed max-h-32 overflow-y-auto"
