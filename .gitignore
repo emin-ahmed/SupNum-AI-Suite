@@ -3,6 +3,12 @@ data/
 venv/
 pipelines/faq/models/
 
+temp_faq_model/
+*.pkl
+*.bin
+*.onnx
+*.p
+
 # Python cache
 __pycache__/
 *.pyc
