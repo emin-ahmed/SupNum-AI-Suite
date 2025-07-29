@@ -1,35 +1,34 @@
-import json
+import yaml
 import os
+import json
 
-# Définir les chemins
-RAW_PATH = "data/intialze.jsnol"
-OUTPUT_DIR = "data/processed"
-OUTPUT_PATH = os.path.join(OUTPUT_DIR, "faq_chatml1.jsonl")
+def load_params():
+    with open("params.yaml", "r") as f:
+        return yaml.safe_load(f)
 
-# Créer le dossier de sortie s'il n'existe pas
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+def prepare_faq(input_path, output_path):
+    # Lecture ligne par ligne (format JSONL)
+    processed_data = []
+    with open(input_path, "r", encoding="utf-8") as f:
+        for line in f:
+            try:
+                item = json.loads(line.strip())
+                if "question" in item and "answer" in item and item["question"] and item["answer"]:
+                    processed_data.append(item)
+            except json.JSONDecodeError:
+                continue  # Ignore les lignes invalides
 
-# Chargement des données JSONL
-with open(RAW_PATH, "r", encoding="utf-8") as f:
-    lines = f.readlines()
+    # Sauvegarde au format JSONL aussi
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        for item in processed_data:
+            f.write(json.dumps(item, ensure_ascii=False) + "\n")
 
-# Conversion en format ChatML
-chatml_data = []
-for line in lines:
-    item = json.loads(line)
-    question = item["question"].strip()
-    answer = item["answer"].strip()
+if __name__ == "__main__":
+    params = load_params()
+    input_file = params["preprocess"]["input"]
+    output_file = params["preprocess"]["output"]
+    
+    print(f"Preparing data from: {input_file} → {output_file}")
+    prepare_faq(input_file, output_file)
 
-    messages = [
-        {"role": "user", "content": question},
-        {"role": "assistant", "content": answer}
-    ]
-    chatml_data.append({"messages": messages})
-
-# Écriture du fichier de sortie
-with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
-    for item in chatml_data:
-        json.dump(item, f, ensure_ascii=False)
-        f.write("\n")
-
-print(f"✅ Données converties en format ChatML et enregistrées dans {OUTPUT_PATH}")

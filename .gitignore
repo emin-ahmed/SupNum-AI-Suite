@@ -9,9 +9,30 @@ __pycache__/
 *.pyo
 *.pyd
 
+# Données DVC gérées par remote
+*.dvc
+!.dvc/config
+!.dvcignore
+!.dvc/tmp/
+
+
+params.yaml
+dvc.yaml
+# Cache DVC local
+.dvc/cache/
+.dvc/tmp/
+
+models/
+pipelines/**/models/
+
+# Artéfacts MLflow
+mlruns/
+
+
 # Jupyter
 .ipynb_checkpoints/
 
 # Environnement
 .env
 .DS_Store
+/eval_output.txt
