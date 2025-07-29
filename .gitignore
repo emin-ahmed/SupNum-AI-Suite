@@ -36,3 +36,4 @@ mlruns/
 .env
 .DS_Store
 /eval_output.txt
+temp_faq_model/python_model.pkl
