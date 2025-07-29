@@ -3,6 +3,8 @@ data/
 venv/
 pipelines/faq/models/
 
+
+
 temp_faq_model/
 *.pkl
 *.bin
@@ -17,12 +19,13 @@ __pycache__/
 *.pyd
 
 # Données DVC gérées par remote
+
+
 *.dvc
+!data.dvc
 !.dvc/config
 !.dvcignore
 !.dvc/tmp/
-
-
 #params.yaml
 #dvc.yaml
 # Cache DVC local

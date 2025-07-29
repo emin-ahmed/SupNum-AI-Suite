@@ -30,7 +30,7 @@ stages:
     params:
       params.yaml:
         train.batch_size: 4
-        train.epochs: 2.8
+        train.epochs: 5
         train.learning_rate: 0.0003
         train.lora_alpha: 16
         train.lora_dropout: 0.05
@@ -40,9 +40,9 @@ stages:
     outs:
     - path: pipelines/faq/models/faq_model_flan_base
       hash: md5
-      md5: a4b6d270a9a24a6c0b2153579b761e61.dir
-      size: 39723489
-      nfiles: 33
+      md5: a67098868036cc4c254795c834e6e3f8.dir
+      size: 66240359
+      nfiles: 55
   evaluate:
     cmd: python pipelines/faq/eval_faq.py
     deps:

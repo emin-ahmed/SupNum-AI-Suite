@@ -4,7 +4,6 @@
     url = s3://project-mlops-bucket
 ['remote "dvcstore"']
     url = s3://project-mlops-bucket/dvc
-    access_key_id = ASIA4NLUC36ZQKAKBTMF
-    secret_access_key = Bh0H7UpdEj+4JO6B8bFzlQsUeXs2P+AlqAKBOyja
-    session_token = IQoJb3JpZ2luX2VjEGwaCWV1LXdlc3QtMyJHMEUCICpqOte1j2g02bTp9w78iMiHam6CUnxYGftLyrJo6I73AiEAqY2C7KhVTLAIMarF762HoQIy925zrTRGQIdu3vnwlIIq8AIIlf//////////ARAAGgw4NTMzMzEzMzcxMzkiDE5F5dvhqI3IGbHT9irEAmLCvCh1t51tTKx9C9PSmGncpdreM9uD7N5LpGLkVOqTzjxbnwZPSRF1j2gluYIGFK3p6RzPnw9MpzD8fRGTkcwGni8wEo9mB+WOyEKnQnObXXwkqVxV6YhqfvvLsKYm2CIUn0V5Zx50gDdqoITg0sjB9y8Z2a7bshhbtrn4nlpegoxsSZdYsXwWrpbeICnhSrKdT3Cf2QWRKTam6Q2Wu4KEpa71uOY4LtLNtDTHmYpTPXrQXXJCXZPZ53vzv5Pt1fdlG8XXhp19+BlFrBY28nNNXZrDD2ojWUUQSaB819J2so471JMRq7cO052UVV88/4sLrs6SQUcDQ1KNRmIUf+mOCHTf0KevPCW/tpAlH1jliw1xwxazkmIR3HxmH9oGau+3w0L5LX+PoZ+kMslUmpPYYlrBcF9MmdhirKme1YhL1wU39TCgpZ/EBjqnAbdm7KgCXJNNcm33tRcXf6/A3bZ4RyjejUa9XDACs3cljc434V498G+gUxvv47jrUSIMMmCyley2nON6wJfvyaTTeMvj9cS9vL8kfVqXUupHJxyJ79ZaqUNlQen2yEIJnrolM37cXbYB8sQMo7XwELx348VaBMrnHqOI5BbQp95LLLXJqIp8+GFeVelH3xTFg70RHP2s+8mx6KcTIw9gRgsyjjffrRGt
+    access_key_id = ASIA4NLUC36ZQAZSOLJI
+    secret_access_key = MfQXAUoTjpN9nSo0UV9KXVzZ8RzXybfw6gSIhqak
     region = eu-north-1
