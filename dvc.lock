@@ -1,0 +1,62 @@
+schema: '2.0'
+stages:
+  preprocess:
+    cmd: python pipelines/faq/prepare_faq.py
+    deps:
+    - path: pipelines/faq/prepare_faq.py
+      hash: md5
+      md5: 0dfa80c1bbd48d7c92c4860652642a69
+      size: 1149
+    params:
+      params.yaml:
+        preprocess.input: data/datafaq/intialze.jsnol
+        preprocess.output: data/datafaq/faq_chatml1.jsonl
+    outs:
+    - path: data/datafaq/faq_chatml1.jsonl
+      hash: md5
+      md5: b42503ac87564bd5aff4ee0a9aca15bb
+      size: 28902
+  train:
+    cmd: python pipelines/faq/train_faq.py
+    deps:
+    - path: data/datafaq/faq_chatml1.jsonl
+      hash: md5
+      md5: b42503ac87564bd5aff4ee0a9aca15bb
+      size: 28902
+    - path: pipelines/faq/train_faq.py
+      hash: md5
+      md5: 11610930001ae84aa6932d89651ad404
+      size: 3774
+    params:
+      params.yaml:
+        train.batch_size: 4
+        train.epochs: 4
+        train.learning_rate: 0.0003
+        train.lora_alpha: 16
+        train.lora_dropout: 0.05
+        train.lora_r: 8
+        train.model_name: google/flan-t5-base
+        train.output_dir: pipelines/faq/models/faq_model_flan_base
+    outs:
+    - path: pipelines/faq/models/faq_model_flan_base
+      hash: md5
+      md5: 3529032906bff449e574900fe2077195.dir
+      size: 58989876
+      nfiles: 50
+  evaluate:
+    cmd: python pipelines/faq/eval_faq.py
+    deps:
+    - path: pipelines/faq/eval_faq.py
+      hash: md5
+      md5: 9e572dae9b0721ba813deba5f692d59c
+      size: 976
+    - path: pipelines/faq/models/faq_model_flan_base
+      hash: md5
+      md5: 3529032906bff449e574900fe2077195.dir
+      size: 58989876
+      nfiles: 50
+    outs:
+    - path: eval_output.txt
+      hash: md5
+      md5: ff7ca9d2c5d8691ebc251028be420625
+      size: 84
