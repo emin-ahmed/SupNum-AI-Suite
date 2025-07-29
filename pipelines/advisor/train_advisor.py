@@ -72,10 +72,10 @@ class CPUCompatibleLoRAAdvisorModel(mlflow.pyfunc.PythonModel):
         
         Args:
             model_input: Can be:
-                - pandas DataFrame with columns: question_ar, question_fr
-                - dict with keys: question_ar, question_fr
+                - pandas DataFrame with columns: question, language
+                - dict with keys: question, language (optional, defaults to 'ar')
                 - list of dicts
-                - string (treated as question_ar)
+                - string (treated as Arabic question)
         """
         import pandas as pd
         
@@ -86,13 +86,13 @@ class CPUCompatibleLoRAAdvisorModel(mlflow.pyfunc.PythonModel):
             questions = [model_input]
         elif isinstance(model_input, list):
             if len(model_input) > 0 and isinstance(model_input[0], str):
-                # Handle list of strings
-                questions = [{"question_ar": q, "question_fr": ""} for q in model_input]
+                # Handle list of strings (assume Arabic)
+                questions = [{"question": q, "language": "ar"} for q in model_input]
             else:
                 questions = model_input
         elif isinstance(model_input, str):
-            # Handle single string input
-            questions = [{"question_ar": model_input, "question_fr": ""}]
+            # Handle single string input (assume Arabic)
+            questions = [{"question": model_input, "language": "ar"}]
         else:
             raise ValueError("Input must be DataFrame, dict, list, or string")
         
@@ -101,13 +101,19 @@ class CPUCompatibleLoRAAdvisorModel(mlflow.pyfunc.PythonModel):
         for question in questions:
             # Ensure question has required keys
             if isinstance(question, str):
-                question = {"question_ar": question, "question_fr": ""}
+                question = {"question": question, "language": "ar"}
             
-            question_ar = question.get("question_ar", "")
-            question_fr = question.get("question_fr", "")
+            question_text = question.get("question", "")
+            language = question.get("language", "ar")
             
-            # Format input like during training
-            input_text = f"سؤال: {question_ar}  Question_FR: {question_fr}"
+            # Format input based on language
+            if language == "ar":
+                input_text = f"سؤال: {question_text}"
+            elif language == "fr":
+                input_text = f"Question: {question_text}"
+            else:
+                # Default to Arabic format
+                input_text = f"سؤال: {question_text}"
             
             # Tokenize
             inputs = self.tokenizer(
@@ -132,7 +138,8 @@ class CPUCompatibleLoRAAdvisorModel(mlflow.pyfunc.PythonModel):
             response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             results.append({
                 "input": input_text,
-                "response": response
+                "response": response,
+                "language": language
             })
         
         return results
@@ -149,14 +156,33 @@ def download_from_s3(bucket, key, local_path):
     s3 = session.client("s3")
     s3.download_file(bucket, key, local_path)
 
-def preprocess_function(examples, tokenizer):
-    inputs = [f"سؤال: {q_ar}  Question_FR: {q_fr}" 
-              for q_ar, q_fr in zip(examples["question_ar"], examples["question_fr"])]
-    targets = [f"جواب: {a_ar}  Réponse: {a_fr}" 
-               for a_ar, a_fr in zip(examples["answer_ar"], examples["answer_fr"])]
-    model_inputs = tokenizer(inputs, max_length=512, truncation=True)
-    labels = tokenizer(targets, max_length=512, truncation=True)
+def preprocess_function_single_lang(examples, tokenizer):
+    """
+    Process dataset to create separate training examples for each language
+    Each row will be duplicated: one for Arabic and one for French
+    """
+    inputs = []
+    targets = []
+    
+    # Process each example
+    for i in range(len(examples["question_ar"])):
+        # Arabic example
+        ar_input = f"سؤال: {examples['question_ar'][i]}"
+        ar_target = f"جواب: {examples['answer_ar'][i]}"
+        inputs.append(ar_input)
+        targets.append(ar_target)
+        
+        # French example
+        fr_input = f"Question: {examples['question_fr'][i]}"
+        fr_target = f"Réponse: {examples['answer_fr'][i]}"
+        inputs.append(fr_input)
+        targets.append(fr_target)
+    
+    # Tokenize inputs and targets
+    model_inputs = tokenizer(inputs, max_length=512, truncation=True, padding=True)
+    labels = tokenizer(targets, max_length=512, truncation=True, padding=True)
     model_inputs["labels"] = labels["input_ids"]
+    
     return model_inputs
 
 def compute_metrics(eval_preds, tokenizer):
@@ -177,6 +203,63 @@ def compute_metrics(eval_preds, tokenizer):
         return {"rouge_l_f": rouge_scores["rouge-l"]["f"]}
     except:
         return {"rouge_l_f": 0.0}
+
+def expand_dataset_for_single_language(dataset):
+    """
+    Expand the dataset to create separate examples for each language
+    This doubles the dataset size: each original row becomes 2 rows (AR + FR)
+    """
+    expanded_data = []
+    
+    for example in dataset:
+        # Arabic example
+        ar_example = {
+            "department": example["department"],
+            "question": example["question_ar"],
+            "answer": example["answer_ar"],
+            "language": "ar"
+        }
+        expanded_data.append(ar_example)
+        
+        # French example
+        fr_example = {
+            "department": example["department"],
+            "question": example["question_fr"],
+            "answer": example["answer_fr"],
+            "language": "fr"
+        }
+        expanded_data.append(fr_example)
+    
+    return expanded_data
+
+def preprocess_expanded_dataset(examples, tokenizer):
+    """
+    Preprocess the expanded dataset where each example is single-language
+    """
+    inputs = []
+    targets = []
+    
+    for i in range(len(examples["question"])):
+        language = examples["language"][i]
+        question = examples["question"][i]
+        answer = examples["answer"][i]
+        
+        if language == "ar":
+            input_text = f"سؤال: {question}"
+            target_text = f"جواب: {answer}"
+        else:  # French
+            input_text = f"Question: {question}"
+            target_text = f"Réponse: {answer}"
+        
+        inputs.append(input_text)
+        targets.append(target_text)
+    
+    # Tokenize
+    model_inputs = tokenizer(inputs, max_length=512, truncation=True, padding=True)
+    labels = tokenizer(targets, max_length=512, truncation=True, padding=True)
+    model_inputs["labels"] = labels["input_ids"]
+    
+    return model_inputs
 
 if __name__ == "__main__":
     params = yaml.safe_load(open("params.yaml"))["advisor"]
@@ -206,7 +289,24 @@ if __name__ == "__main__":
 
     print("File successfully fixed and overwritten as proper JSONL")
 
-    dataset = load_dataset("json", data_files={"train": local_train})
+    # Load original dataset
+    original_dataset = load_dataset("json", data_files={"train": local_train})
+    
+    # Expand dataset for single-language training
+    print("Expanding dataset for single-language training...")
+    expanded_data = expand_dataset_for_single_language(original_dataset["train"])
+    
+    # Save expanded dataset
+    expanded_file = "data/expanded_train.jsonl"
+    with open(expanded_file, "w") as f:
+        for example in expanded_data:
+            f.write(json.dumps(example, ensure_ascii=False) + "\n")
+    
+    # Load expanded dataset
+    dataset = load_dataset("json", data_files={"train": expanded_file})
+    print(f"Original dataset size: {len(original_dataset['train'])}")
+    print(f"Expanded dataset size: {len(dataset['train'])}")
+    
     tokenizer = AutoTokenizer.from_pretrained(params["base_model"])
     
     # Add padding token if missing
@@ -216,7 +316,8 @@ if __name__ == "__main__":
     model = T5ForConditionalGeneration.from_pretrained(params["base_model"])
     model.to(device)
 
-    dataset = dataset.map(lambda x: preprocess_function(x, tokenizer), batched=True)
+    # Use the new preprocessing function for expanded dataset
+    dataset = dataset.map(lambda x: preprocess_expanded_dataset(x, tokenizer), batched=True)
 
     lora_config = LoraConfig(
         r=params["lora_r"],
@@ -263,7 +364,8 @@ if __name__ == "__main__":
             "batch_size": params["batch_size"],
             "lora_r": params["lora_r"],
             "lora_alpha": params["lora_alpha"],
-            "base_model": params["base_model"]
+            "base_model": params["base_model"],
+            "training_approach": "single_language_per_example"
         })
 
         # Save metrics
@@ -361,9 +463,17 @@ if __name__ == "__main__":
         try:
             print("Testing saved model...")
             test_model = mlflow.pyfunc.load_model(temp_model_path)
-            test_input = {"question_ar": "ما هو الاستثمار؟", "question_fr": "Qu'est-ce que l'investissement?"}
-            test_result = test_model.predict(test_input)
-            print(f"Test result: {test_result}")
+            
+            # Test Arabic
+            test_input_ar = {"question": "ما هو الاستثمار؟", "language": "ar"}
+            test_result_ar = test_model.predict(test_input_ar)
+            print(f"Arabic test result: {test_result_ar}")
+            
+            # Test French
+            test_input_fr = {"question": "Qu'est-ce que l'investissement?", "language": "fr"}
+            test_result_fr = test_model.predict(test_input_fr)
+            print(f"French test result: {test_result_fr}")
+            
             print("Model test successful!")
         except Exception as e:
             print(f"Model test failed: {e}")
