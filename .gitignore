@@ -8,6 +8,7 @@ temp_faq_model/
 *.bin
 *.onnx
 
+params.yaml
 
 # Python cache
 __pycache__/
