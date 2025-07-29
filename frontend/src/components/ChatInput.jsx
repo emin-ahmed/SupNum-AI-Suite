@@ -62,7 +62,7 @@ export const ChatInput = ({ onSendMessage, disabled = false }) => {
           </div>
           
           <p className="text-xs text-gray-500 text-center mt-2">
-            ChatGPT peut faire des erreurs. Vérifiez les informations importantes.
+            SupnumChat peut faire des erreurs. Vérifiez les informations importantes.
           </p>
         </form>
       </div>
