@@ -256,6 +256,13 @@ if __name__ == "__main__":
             if "eval_loss" in record:
                 mlflow.log_metric("eval_loss", record["eval_loss"], step=record.get("step", 0))
 
+
+        # ---- Move to CPU before saving adapter ----
+        print("Moving model to CPU for CPU-compatible saving...")
+        model.to("cpu")
+        torch.set_default_tensor_type(torch.FloatTensor)
+
+        
         # Save adapter
         adapter_dir = "/tmp/adapter"
         model.save_pretrained(adapter_dir)
