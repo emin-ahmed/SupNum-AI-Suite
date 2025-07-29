@@ -25,12 +25,12 @@ stages:
       size: 28902
     - path: pipelines/faq/train_faq.py
       hash: md5
-      md5: 11610930001ae84aa6932d89651ad404
-      size: 3774
+      md5: 8fb224b6f2460189a03a296f500d1671
+      size: 5519
     params:
       params.yaml:
         train.batch_size: 4
-        train.epochs: 4
+        train.epochs: 2.8
         train.learning_rate: 0.0003
         train.lora_alpha: 16
         train.lora_dropout: 0.05
@@ -40,9 +40,9 @@ stages:
     outs:
     - path: pipelines/faq/models/faq_model_flan_base
       hash: md5
-      md5: 3529032906bff449e574900fe2077195.dir
-      size: 58989876
-      nfiles: 50
+      md5: a4b6d270a9a24a6c0b2153579b761e61.dir
+      size: 39723489
+      nfiles: 33
   evaluate:
     cmd: python pipelines/faq/eval_faq.py
     deps:

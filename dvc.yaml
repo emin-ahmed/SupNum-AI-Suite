@@ -1,0 +1,33 @@
+stages:
+  preprocess:
+    cmd: python pipelines/faq/prepare_faq.py
+    deps:
+    - pipelines/faq/prepare_faq.py
+    params:
+    - preprocess.input
+    - preprocess.output
+    outs:
+    - data/datafaq/faq_chatml1.jsonl
+  train:
+    cmd: python pipelines/faq/train_faq.py
+    deps:
+    - data/datafaq/faq_chatml1.jsonl
+    - pipelines/faq/train_faq.py
+    params:
+    - train.batch_size
+    - train.epochs
+    - train.learning_rate
+    - train.lora_alpha
+    - train.lora_dropout
+    - train.lora_r
+    - train.model_name
+    - train.output_dir
+    outs:
+    - pipelines/faq/models/faq_model_flan_base
+  evaluate:
+    cmd: python pipelines/faq/eval_faq.py
+    deps:
+    - pipelines/faq/eval_faq.py
+    - pipelines/faq/models/faq_model_flan_base
+    outs:
+    - eval_output.txt

@@ -16,8 +16,8 @@ __pycache__/
 !.dvc/tmp/
 
 
-params.yaml
-dvc.yaml
+#params.yaml
+#dvc.yaml
 # Cache DVC local
 .dvc/cache/
 .dvc/tmp/

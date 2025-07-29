@@ -1,0 +1,23 @@
+preprocess:
+  input: data/datafaq/intialze.jsnol
+  output: data/datafaq/faq_chatml1.jsonl
+
+train:
+  model_name: google/flan-t5-base
+  output_dir: pipelines/faq/models/faq_model_flan_base
+  batch_size: 4
+  epochs: 2.8
+  learning_rate: 3e-4
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.05
+
+mlflow:
+  MLFLOW_TRACKING_URI: http://13.48.49.105:5000/
+
+aws:
+  aws_access_key_id: "ASIA4NLUC36ZZTCKYQLS"
+  aws_secret_access_key: "tI3F/jU72gkmZ0+O74G1oozLnl0HzaHkC9uSgzYs"
+  aws_session_token: "IQoJb3JpZ2luX2VjEHwaCWV1LXdlc3QtMyJIMEYCIQDHuiPoIJbJZqAA2dzCF5wrjSyLp/0bVX1MOcAHPTueGAIhAK2c/mUPYUVz6zuAPxernZc8bs7C2aTgY8whOjDyeYc/KvACCKX//////////wEQABoMODUzMzMxMzM3MTM5Igy1BKFpJQz5J9UNTLgqxAIMAUQ1RKnZq/kzuUBwLhKDlTcCE/28b0PkQf+MankQUWH7vl7dFJsMpB1KjxmosfcVVdZtZYtFB6cB3jpYanK42GbtzEkr7ap6OI2EPLNG13qGXGF0ADdYq8yP2DiacPFF1F9HYtzeLnTGvoZQ/1xemcms+MYFtlF+fIp5ZAo2IjPrSGYtXqNrXNBCXt4k6ufAiP05QGd3FliP03ySaKQMX8Nos8NH/BjwNNlmyjv3PpA57FVko15I3HD4zta0ta2gYB4QGrgUoeM17q44c3Ptc4JVHmLeZr6yKSsxrUmMSVHybI/dxBi6erx+0/4+kM3BjZaZZFHMxMWjr7RkZufO8UtneO9R0NIy7TeUVWpeDUuKKs68gCikWXiOeFoajVN5WGrqcQOJM/GkpOcXitzV8Tj/X+E//0+hunHTHW++IYhwM64w2eKixAY6pgGixeXy8Vvr1a6rQbyn/4t7zaEj5gOZgpB+YO8pVHf9Hfhl3XYyIwy+B0dYeHv5B4nMOpo8rn200BZnQUr+AhTUcZuLwp/ku+M216Mg1+mdumr61KMiq62tc226qY12LPtM0+cJZNtPGHyn2O8qy3H/Stmn6VvY/R86FvfLOg1Kyp0jVMzdEUfP55jZ+gOoI6mEZq6IMMx8nMHbHE0xUe1brZV6INNN"
+  region_name: "eu-north-1"
+
