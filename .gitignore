@@ -7,7 +7,7 @@ temp_faq_model/
 *.pkl
 *.bin
 *.onnx
-*.p
+
 
 # Python cache
 __pycache__/
