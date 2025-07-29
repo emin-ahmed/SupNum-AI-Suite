@@ -23,22 +23,6 @@ class Question(BaseModel):
 faq_model = mlflow.pyfunc.load_model("models:/faq-model/Production")
 advisor_model = mlflow.pyfunc.load_model("models:/advisor-model/Production")
 
-# @app.post("/faq")
-# def ask_faq(payload: Question):
-#     answer = faq_model.predict([payload.question])
-#     # mlflow pyfunc predict might return list/ndarray; convert to string
-#     if isinstance(answer, (list, tuple)):
-#         answer = answer[0]
-#     return {"response": str(answer)}
-
-# @app.post("/advisor")
-# def ask_advisor(payload: Question):
-#     answer = advisor_model.predict([payload.question])
-#     if isinstance(answer, (list, tuple)):
-#         answer = answer[0]
-#     return {"response": str(answer)}
-
-
 
 @app.post("/advisor")
 def ask_advisor(payload: Question):
