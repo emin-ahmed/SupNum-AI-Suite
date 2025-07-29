@@ -20,8 +20,8 @@ print("CUDA Available:", torch.cuda.is_available())
 print("Device Count:", torch.cuda.device_count())
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-class LoRAAdvisorModel(mlflow.pyfunc.PythonModel):
-    """Custom MLflow PyFunc wrapper for LoRA-adapted T5 model"""
+class CPUCompatibleLoRAAdvisorModel(mlflow.pyfunc.PythonModel):
+    """CPU-Compatible MLflow PyFunc wrapper for LoRA-adapted T5 model"""
     
     def load_context(self, context):
         """Load the model when MLflow loads the artifact"""
@@ -29,7 +29,10 @@ class LoRAAdvisorModel(mlflow.pyfunc.PythonModel):
         from transformers import AutoTokenizer, T5ForConditionalGeneration
         from peft import PeftModel
         
-        # Get the base model name from the context (we'll save it as an artifact)
+        # Force CPU usage
+        torch.set_default_tensor_type(torch.FloatTensor)
+        
+        # Get the base model name from the context
         with open(context.artifacts["config"], 'r') as f:
             config = json.load(f)
         
@@ -40,16 +43,28 @@ class LoRAAdvisorModel(mlflow.pyfunc.PythonModel):
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         
-        # Load base model
-        base_model = T5ForConditionalGeneration.from_pretrained(base_model_name)
+        # Load base model with explicit CPU device mapping
+        base_model = T5ForConditionalGeneration.from_pretrained(
+            base_model_name,
+            torch_dtype=torch.float32,
+            device_map="cpu",
+            low_cpu_mem_usage=True
+        )
         
-        # Load LoRA adapter
-        self.model = PeftModel.from_pretrained(base_model, context.artifacts["adapter"])
+        # Load LoRA adapter with CPU device mapping
+        self.model = PeftModel.from_pretrained(
+            base_model, 
+            context.artifacts["adapter"],
+            torch_dtype=torch.float32,
+            device_map="cpu"
+        )
         
-        # Set device
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # Ensure CPU device
+        self.device = torch.device("cpu")
         self.model.to(self.device)
         self.model.eval()
+        
+        print(f"Model loaded on device: {self.device}")
     
     def predict(self, context, model_input):
         """
@@ -60,6 +75,7 @@ class LoRAAdvisorModel(mlflow.pyfunc.PythonModel):
                 - pandas DataFrame with columns: question_ar, question_fr
                 - dict with keys: question_ar, question_fr
                 - list of dicts
+                - string (treated as question_ar)
         """
         import pandas as pd
         
@@ -69,15 +85,29 @@ class LoRAAdvisorModel(mlflow.pyfunc.PythonModel):
         elif isinstance(model_input, dict):
             questions = [model_input]
         elif isinstance(model_input, list):
-            questions = model_input
+            if len(model_input) > 0 and isinstance(model_input[0], str):
+                # Handle list of strings
+                questions = [{"question_ar": q, "question_fr": ""} for q in model_input]
+            else:
+                questions = model_input
+        elif isinstance(model_input, str):
+            # Handle single string input
+            questions = [{"question_ar": model_input, "question_fr": ""}]
         else:
-            raise ValueError("Input must be DataFrame, dict, or list of dicts")
+            raise ValueError("Input must be DataFrame, dict, list, or string")
         
         results = []
         
         for question in questions:
+            # Ensure question has required keys
+            if isinstance(question, str):
+                question = {"question_ar": question, "question_fr": ""}
+            
+            question_ar = question.get("question_ar", "")
+            question_fr = question.get("question_fr", "")
+            
             # Format input like during training
-            input_text = f"سؤال: {question['question_ar']}  Question_FR: {question['question_fr']}"
+            input_text = f"سؤال: {question_ar}  Question_FR: {question_fr}"
             
             # Tokenize
             inputs = self.tokenizer(
@@ -153,16 +183,13 @@ if __name__ == "__main__":
 
     mlflow.set_tracking_uri(params["mlflow_tracking_uri"])
     mlflow.set_experiment(params["mlflow_experiment"])
-
+    print("Model : ", params["base_model"])
     os.makedirs("data", exist_ok=True)
     local_train = "data/train.jsonl"
     download_from_s3(params["bucket"], params["train_key"], local_train)
     
-
-
     import ast
     import json
-
 
     # Read the Python-dict style lines, convert to valid JSON, and overwrite
     with open(local_train, "r") as infile:
@@ -178,10 +205,6 @@ if __name__ == "__main__":
                 print("Error:", e)
 
     print("File successfully fixed and overwritten as proper JSONL")
-
-
-
-
 
     dataset = load_dataset("json", data_files={"train": local_train})
     tokenizer = AutoTokenizer.from_pretrained(params["base_model"])
@@ -256,16 +279,33 @@ if __name__ == "__main__":
             if "eval_loss" in record:
                 mlflow.log_metric("eval_loss", record["eval_loss"], step=record.get("step", 0))
 
-
-        # ---- Move to CPU before saving adapter ----
+        # ---- CRITICAL: Convert to CPU for CPU-compatible saving ----
         print("Moving model to CPU for CPU-compatible saving...")
-        model.to("cpu")
-        torch.set_default_tensor_type(torch.FloatTensor)
-
         
-        # Save adapter
+        # Move model to CPU
+        model.to("cpu")
+        
+        # Clear CUDA cache if available
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        
+        # Set default tensor type to FloatTensor (CPU)
+        torch.set_default_tensor_type(torch.FloatTensor)
+        
+        # Force garbage collection
+        import gc
+        gc.collect()
+        
+        print("Model successfully moved to CPU")
+        
+        # Save adapter with CPU state
         adapter_dir = "/tmp/adapter"
+        if os.path.exists(adapter_dir):
+            shutil.rmtree(adapter_dir)
+        
+        # Save the LoRA adapter
         model.save_pretrained(adapter_dir)
+        print(f"Adapter saved to {adapter_dir}")
         
         # Save model configuration for inference
         config_path = "/tmp/model_config.json"
@@ -274,37 +314,23 @@ if __name__ == "__main__":
             "lora_r": params["lora_r"],
             "lora_alpha": params["lora_alpha"],
             "target_modules": ["q", "v"],
-            "task_type": "SEQ_2_SEQ_LM"
+            "task_type": "SEQ_2_SEQ_LM",
+            "torch_dtype": "float32",
+            "device_map": "cpu"
         }
         with open(config_path, 'w') as f:
             json.dump(config, f)
-        
-        # Log model with custom PyFunc wrapper(Needs a newer version on the server)
-        # mlflow.pyfunc.log_model(
-        #     artifact_path="advisor_model",
-        #     python_model=LoRAAdvisorModel(),
-        #     artifacts={
-        #         "adapter": adapter_dir,
-        #         "config": config_path
-        #     },
-        #     pip_requirements=[
-        #         "torch",
-        #         "transformers",
-        #         "peft",
-        #         "accelerate"
-        #     ],
-        #     registered_model_name="advisor_model"          
-        # )
+        print(f"Config saved to {config_path}")
 
         temp_model_path = "./temp_advisor_model"
         if os.path.exists(temp_model_path):
             shutil.rmtree(temp_model_path)
         print(f"Removed existing directory: {temp_model_path}")
 
-        # First save and log the model
+        # Save model with CPU-compatible PyFunc wrapper
         mlflow.pyfunc.save_model(
             path=temp_model_path,
-            python_model=LoRAAdvisorModel(),
+            python_model=CPUCompatibleLoRAAdvisorModel(),
             artifacts={
                 "adapter": adapter_dir,
                 "config": config_path
@@ -316,17 +342,31 @@ if __name__ == "__main__":
                 "accelerate"
             ]
         )
+        print("Model saved with CPU-compatible wrapper")
 
         # Log to MLflow
         mlflow.log_artifacts(temp_model_path, "advisor_model")
+        print("Artifacts logged to MLflow")
 
         # Register the model
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/advisor_model"
         registered_model = mlflow.register_model(
             model_uri=model_uri,
-            name="advisor-model"  # Choose your model name
+            name="advisor-model"
         )
 
         print(f"Model registered: {registered_model.name}, Version: {registered_model.version}")
-    print("Training completed and model logged to MLflow.")
+        
+        # Test the saved model locally (optional)
+        try:
+            print("Testing saved model...")
+            test_model = mlflow.pyfunc.load_model(temp_model_path)
+            test_input = {"question_ar": "ما هو الاستثمار؟", "question_fr": "Qu'est-ce que l'investissement?"}
+            test_result = test_model.predict(test_input)
+            print(f"Test result: {test_result}")
+            print("Model test successful!")
+        except Exception as e:
+            print(f"Model test failed: {e}")
+        
+    print("Training completed and CPU-compatible model logged to MLflow.")
     print(f"Model URI: runs:/{run.info.run_id}/advisor_model")
