@@ -76,6 +76,7 @@ class CPUCompatibleLoRAAdvisorModel(mlflow.pyfunc.PythonModel):
                 - dict with keys: question, language (optional, defaults to 'ar')
                 - list of dicts
                 - string (treated as Arabic question)
+
         """
         import pandas as pd
         
@@ -93,6 +94,7 @@ class CPUCompatibleLoRAAdvisorModel(mlflow.pyfunc.PythonModel):
         elif isinstance(model_input, str):
             # Handle single string input (assume Arabic)
             questions = [{"question": model_input, "language": "ar"}]
+
         else:
             raise ValueError("Input must be DataFrame, dict, list, or string")
         
@@ -114,7 +116,7 @@ class CPUCompatibleLoRAAdvisorModel(mlflow.pyfunc.PythonModel):
             else:
                 # Default to Arabic format
                 input_text = f"سؤال: {question_text}"
-            
+
             # Tokenize
             inputs = self.tokenizer(
                 input_text,
@@ -307,6 +309,7 @@ if __name__ == "__main__":
     print(f"Original dataset size: {len(original_dataset['train'])}")
     print(f"Expanded dataset size: {len(dataset['train'])}")
     
+
     tokenizer = AutoTokenizer.from_pretrained(params["base_model"])
     
     # Add padding token if missing
@@ -474,6 +477,7 @@ if __name__ == "__main__":
             test_result_fr = test_model.predict(test_input_fr)
             print(f"French test result: {test_result_fr}")
             
+
             print("Model test successful!")
         except Exception as e:
             print(f"Model test failed: {e}")
