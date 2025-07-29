@@ -130,21 +130,32 @@ if __name__ == "__main__":
             rouge_scores = rouge.get_scores(list(valid_predictions), list(valid_references), avg=True)
             metrics = {
                 "rouge_l_f": rouge_scores["rouge-l"]["f"],
+                "rouge_l_p": rouge_scores["rouge-l"]["p"],
+                "rouge_l_r": rouge_scores["rouge-l"]["r"],
                 "rouge_1_f": rouge_scores["rouge-1"]["f"],
+                "rouge_1_p": rouge_scores["rouge-1"]["p"],
+                "rouge_1_r": rouge_scores["rouge-1"]["r"],
                 "rouge_2_f": rouge_scores["rouge-2"]["f"],
-                "valid_predictions": len(valid_pairs),
-                "total_samples": len(test_data),
-                "success_rate": len(valid_pairs) / len(test_data)
-            }
-        except Exception as e:
-            print(f"Error calculating ROUGE scores: {e}")
-            metrics = {
-                "rouge_l_f": 0.0,
-                "rouge_1_f": 0.0,
-                "rouge_2_f": 0.0,
+                "rouge_2_p": rouge_scores["rouge-2"]["p"],
+                "rouge_2_r": rouge_scores["rouge-2"]["r"],
                 "valid_predictions": len(valid_pairs),
                 "total_samples": len(test_data),
                 "success_rate": len(valid_pairs) / len(test_data),
+                "avg_prediction_length": sum(len(p) for p in valid_predictions) / len(valid_predictions),
+                "avg_reference_length": sum(len(r) for r in valid_references) / len(valid_references)
+            }
+            print(f"ROUGE scores calculated successfully for {len(valid_pairs)} valid predictions")
+        except Exception as e:
+            print(f"Error calculating ROUGE scores: {e}")
+            metrics = {
+                "rouge_l_f": 0.0, "rouge_l_p": 0.0, "rouge_l_r": 0.0,
+                "rouge_1_f": 0.0, "rouge_1_p": 0.0, "rouge_1_r": 0.0,
+                "rouge_2_f": 0.0, "rouge_2_p": 0.0, "rouge_2_r": 0.0,
+                "valid_predictions": len(valid_pairs),
+                "total_samples": len(test_data),
+                "success_rate": len(valid_pairs) / len(test_data),
+                "avg_prediction_length": 0,
+                "avg_reference_length": 0,
                 "error": str(e)
             }
 
@@ -153,25 +164,91 @@ if __name__ == "__main__":
     with open("metrics/eval_metrics.json", "w") as f:
         json.dump(metrics, f, ensure_ascii=False, indent=2)
 
-    # Log metrics to MLflow
-    with mlflow.start_run():
+    # Log metrics to MLflow with comprehensive tracking
+    mlflow.set_experiment("advisor-evaluation")
+    
+    with mlflow.start_run(run_name=f"evaluation_{model_name}") as run:
+        # Log evaluation parameters
+        mlflow.log_params({
+            "model_name": model_name,
+            "model_version": "Production",
+            "test_samples": len(test_data),
+            "evaluation_date": json.dumps({"date": str(pd.Timestamp.now())}) if 'pd' in locals() else str(__import__('datetime').datetime.now()),
+            "base_model": params.get("base_model", "unknown")
+        })
+        
+        # Log all metrics
         for key, value in metrics.items():
             if isinstance(value, (int, float)):
                 mlflow.log_metric(f"eval_{key}", value)
+                print(f"Logged metric: eval_{key} = {value}")
         
-        # Log some sample predictions for inspection
+        # Log detailed metrics breakdown
+        if 'rouge_scores' in locals():
+            # Log individual ROUGE components
+            for rouge_type in ['rouge-1', 'rouge-2', 'rouge-l']:
+                if rouge_type in rouge_scores:
+                    mlflow.log_metric(f"eval_{rouge_type.replace('-', '_')}_precision", rouge_scores[rouge_type]['p'])
+                    mlflow.log_metric(f"eval_{rouge_type.replace('-', '_')}_recall", rouge_scores[rouge_type]['r'])
+                    mlflow.log_metric(f"eval_{rouge_type.replace('-', '_')}_f1", rouge_scores[rouge_type]['f'])
+        
+        # Create and log sample predictions
         sample_results = []
-        for i in range(min(5, len(test_data))):
+        for i in range(min(10, len(test_data))):  # Increased to 10 samples
             sample_results.append({
+                "sample_id": i + 1,
                 "question_ar": test_data[i]["question_ar"],
                 "question_fr": test_data[i].get("question_fr", ""),
-                "expected_answer": f"{test_data[i]['answer_ar']} {test_data[i].get('answer_fr', '')}",
-                "predicted_answer": predictions[i] if i < len(predictions) else "N/A"
+                "expected_answer_ar": test_data[i]['answer_ar'],
+                "expected_answer_fr": test_data[i].get('answer_fr', ''),
+                "expected_full": f"{test_data[i]['answer_ar']} {test_data[i].get('answer_fr', '')}",
+                "predicted_answer": predictions[i] if i < len(predictions) else "N/A",
+                "prediction_length": len(predictions[i]) if i < len(predictions) and predictions[i] else 0
             })
         
-        with open("sample_predictions.json", "w") as f:
+        # Save and log sample predictions
+        sample_file = "sample_predictions.json"
+        with open(sample_file, "w") as f:
             json.dump(sample_results, f, ensure_ascii=False, indent=2)
-        mlflow.log_artifact("sample_predictions.json")
+        mlflow.log_artifact(sample_file)
+        
+        # Log full metrics file
+        mlflow.log_artifact("metrics/eval_metrics.json")
+        
+        # Create and log evaluation summary
+        summary = {
+            "evaluation_summary": {
+                "model_name": model_name,
+                "total_samples": len(test_data),
+                "successful_predictions": metrics.get("valid_predictions", 0),
+                "success_rate_percentage": round(metrics.get("success_rate", 0) * 100, 2),
+                "rouge_l_f1": round(metrics.get("rouge_l_f", 0), 4),
+                "rouge_1_f1": round(metrics.get("rouge_1_f", 0), 4),
+                "rouge_2_f1": round(metrics.get("rouge_2_f", 0), 4),
+                "evaluation_status": "completed" if metrics.get("valid_predictions", 0) > 0 else "failed"
+            }
+        }
+        
+        summary_file = "evaluation_summary.json"
+        with open(summary_file, "w") as f:
+            json.dump(summary, f, ensure_ascii=False, indent=2)
+        mlflow.log_artifact(summary_file)
+        
+        # Log run info
+        print(f"\n=== MLflow Tracking ===")
+        print(f"Experiment: advisor-evaluation")
+        print(f"Run ID: {run.info.run_id}")
+        print(f"Run Name: evaluation_{model_name}")
+        print(f"MLflow UI: {params['mlflow_tracking_uri']}")
+        print(f"Artifacts logged: {sample_file}, eval_metrics.json, {summary_file}")
+        
+        # Set tags for better organization
+        mlflow.set_tags({
+            "evaluation_type": "model_performance",
+            "model_type": "advisor",
+            "data_split": "test",
+            "evaluation_framework": "rouge"
+        })
 
     print("Evaluation completed!")
     print("Metrics:", json.dumps(metrics, indent=2, ensure_ascii=False))
