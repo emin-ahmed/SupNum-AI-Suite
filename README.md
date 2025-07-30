@@ -31,7 +31,7 @@ La solution s'appuie sur plusieurs composants :
 
 Les données brutes sont stockées sur S3, puis prétraitées et découpées en train/test via `prepare_advisor.py`. Le script `train_advisor.py` entraîne un modèle T5 adapté par LoRA et enregistre les artefacts sur MLflow. Enfin `eval_advisor.py` mesure les performances (ROUGE) et sauvegarde les métriques dans `metrics/`.
 
-![Architecture du projet](images/architecture.png)
+![Architecture du projet](Images/architecture.png)
 
 ## Mise en place de l'environnement
 
@@ -66,11 +66,11 @@ npm run dev -- --host 0.0.0.0
 
 ## Captures d'écran
 
-![Capture MLflow](images/mlflow-expriment.png)
+![Capture MLflow](Images/mlflow-expriment.png)
 
-![Capture DVC](imagesdvc.png)
+![Capture DVC](Imagesdvc.png)
 
-![Interface du app](images/app.png)
+![Interface du app](Images/app.png)
 
 
 Le projet met en œuvre des techniques récentes :
