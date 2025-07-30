@@ -68,7 +68,7 @@ npm run dev -- --host 0.0.0.0
 
 ![Capture MLflow](Images/mlflow-expriment.png)
 
-![Capture DVC](Imagesdvc.png)
+![Capture DVC](Images/dvc.png)
 
 ![Interface du app](Images/app.png)
 
